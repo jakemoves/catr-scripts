@@ -1,0 +1,115 @@
+global proc createVrmesh(string $path, string $filename, string $object){
+	updateFrame();
+	select -r $object;
+	print("creating vray mesh for current frame from " + $object + "\n");
+	print("file: " + $path + $filename);
+	vrayCreateProxy -exportType 1 -previewFaces 100000 -dir $path -fname $filename -ignoreHiddenObjects;
+}
+
+global proc createVrmeshes(int $start, int $end, string $object){
+	string $path =  "/Volumes/Untitled 1/vraymeshtest/"; 
+	string $filename;
+
+	for($i = 0; $i < $end - $start + 1; ++$i){
+		$filename = "vr_frame" + $i + ".vrmesh";
+		currentTime -edit ($start + $i);
+		createVrmesh($path, $filename, "take7:Mesh");
+	}
+}
+
+global proc updateFrame(){
+// updates OBJ files in sequence from disk
+checkTime();
+global int $ct;
+//int $ct = `currentTime -query`;
+int $startFrames[] = { 8509 };
+//int $startFrames[] = { playbackOptions -q -animationStartTime };
+string $frameNumber;
+string $frame;
+string $index;
+string $reference;
+string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-13/frame";
+
+print("frameUpdate >> current frame is " + $ct + "\n");
+cycleCheck -e off;
+for( $i=1; $i<2; ++$i ){
+	$reference = "frame946RN";
+	//$frameNumber = $startFrames[$i-1] + $ct;
+	$frameNumber = $ct;
+	$frame = ( $path + $frameNumber + ".obj" );
+	print("loading frame " + $frameNumber + " into reference " + $reference + "\n");
+	file -loadReference $reference -type "OBJ" $frame;	
+}
+}
+
+global proc updateFrameJennaSoloShot63(){
+	// updates OBJ files in sequence from disk
+	checkTime();
+	global int $ct;
+	//int $ct = `currentTime -query`;
+	int $startFrames[] = { 1800 };
+	global int $currentFrames[];
+	//int $startFrames[] = { playbackOptions -q -animationStartTime };
+	string $frameNumber;
+	string $frame;
+	string $index;
+	string $reference;
+	string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-9/frame";
+	int $currentReference = 1; 
+	int $frameBurstCount;
+	int $burstLength = 120;
+	//int $burstOffset = 54;
+
+	print("frameUpdate >> current frame is " + $ct + "\n");
+	cycleCheck -e off;
+
+	for( $i=1; $i<7; ++$i ){
+		$reference = "frame1706RN" + $i;
+		if($ct > 720){ //start rondo on f720
+			if($frameBurstCount == $burstLength){
+				if($currentReference < 6){
+					$currentReference++;
+				} else {
+					$currentReference = 1;
+				}
+				$frameBurstCount = 0;
+			} else {
+				$frameBurstCount++;
+			}
+
+			if($currentReference == $i){
+				//$frameNumber = $startFrames[$i-1] + $ct;
+				//$frameNumber = $startFrames[0] + $ct - 720; 
+				$frameNumber = $currentFrames[$i-1];
+				$currentFrames[$i-1] = $currentFrames[$i-1] + 1;
+				//$frameNumber = $ct;	
+			} else {
+				$frameNumber = $currentFrames[$i-1];
+			}
+		} else {
+			print("still on preburst");
+			$frameNumber = $currentFrames[$i-1];
+		}
+		$frame = ( $path + $frameNumber + ".obj" );
+		print("loading frame " + $frameNumber + " into reference " + $reference + "\n");
+		file -loadReference $reference -type "OBJ" $frame;
+	}
+}
+
+global proc init(){
+	print("running init");
+    global int $ct;
+}
+
+global proc initJenna063(){
+	print("running init");
+    global int $ct;
+	global int $currentFrames[] = { 1800, 1800, 1800, 1800, 1800, 1800 };
+	global int $frameBurstCount = 0;
+}
+
+global proc checkTime(){
+    global int $ct;
+    $ct = `currentTime -query`;
+    print("current time: " + $ct + "\n");
+}
