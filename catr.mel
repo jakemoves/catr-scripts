@@ -17,30 +17,52 @@ global proc createVrmeshes(int $start, int $end, string $object){
 	}
 }
 
-global proc updateFrame(){
-	// updates OBJ files in sequence from disk
+global proc init(){
+	print("running init");
+    global int $ct;
+
+    global string $references[] = 			{ "frame1706RN" };
+    global int $referenceStartFrames[] =	{ 1706 };
+    global int $referenceCurrentFrames[] = 	{ 1706 };
+}
+
+global proc updateMeshes(){
 	checkTime();
 	global int $ct;
-	//int $ct = `currentTime -query`;
-	int $startFrames[] = { 1706 };
-	//int $startFrames[] = { playbackOptions -q -animationStartTime };
-	string $frameNumber;
-	string $frame;
-	string $index;
-	string $reference;
-	string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-9/frame";
 
-	print("frameUpdate >> current frame is " + $ct + "\n");
-	cycleCheck -e off;
-	for( $i=1; $i<2; ++$i ){
-		$reference = "frame1706RN";
-		//$frameNumber = $startFrames[$i-1] + $ct;
-		$frameNumber = $ct;
-		$frame = ( $path + $frameNumber + ".obj" );
-		print("loading frame " + $frameNumber + " into reference " + $reference + "\n");
-		file -loadReference $reference -type "OBJ" $frame;	
-	}
+	//int $ct = `currentTime -query`;
+	int $currentFrame = $ct;
+	//int $startFrames[] = { playbackOptions -q -animationStartTime };
+
+	string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-9/";
+	string $filenameStem = "frame";
+
+	print("frameUpdate >> current frame is " + $currentFrame + "\n");
+	updateReferenceAtFrame(0, $currentFrame, $path, $filenameStem);
 }
+
+global proc updateReferenceAtFrame(int $referenceIndex, int $currentFrame, string $path, string $filenameStem){
+	global string $references[];
+	global int $referenceStartFrames[];
+	global int $referenceCurrentFrames[];
+	string $frameIndex;
+
+	cycleCheck -e off;
+	
+	$frameIndex = $referenceStartFrames[$referenceIndex] + $currentFrame;
+	loadFileIntoReference($path, $filenameStem, $frameIndex, $references[$referenceIndex]);
+	$referenceCurrentFrames[$referenceIndex] = $frameIndex;
+
+	print("set reference current frame to " + $referenceCurrentFrames[$referenceIndex]);
+}
+
+global proc loadFileIntoReference(string $path, string $filenameStem, string $index, string $reference){
+	string $filePath = $path + $filenameStem + $index + ".obj";
+	file -loadReference $reference -type "OBJ" $filePath;
+}
+
+
+
 
 global proc updateFrameJennaSoloShot63(){
 	// updates OBJ files in sequence from disk
@@ -94,11 +116,6 @@ global proc updateFrameJennaSoloShot63(){
 		print("loading frame " + $frameNumber + " into reference " + $reference + "\n");
 		file -loadReference $reference -type "OBJ" $frame;
 	}
-}
-
-global proc init(){
-	print("running init");
-    global int $ct;
 }
 
 global proc initJenna063(){
