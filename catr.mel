@@ -1,3 +1,5 @@
+// bug: retrograde skips don't work properly
+
 global proc createVrmesh(string $path, string $filename, string $object){
 	updateFrame();
 	select -r $object;
@@ -18,57 +20,175 @@ global proc createVrmeshes(int $start, int $end, string $object){
 }
 
 global proc init(){
-	print("running init");
-    global int $ct;
+	print("init():" + "\n");
+    global int $currentTime;
+    global int $lastTime;
+    global string $filenameStem;
+    global string $references[];
+    global int $referenceStartFrames[];
+    global int $referenceCurrentFrames[];
+    global int $referenceNextFrames[];
+    global string $referencePaths[];
+    global string $effects[]; 
+    global int $effectSettings[]; 
+    global int $effectRanges[];
 
-    global string $references[] = 			{ "frame1706RN" };
-    global int $referenceStartFrames[] =	{ 1706 };
-    global int $referenceCurrentFrames[] = 	{ 1706 };
+    // reset global variables to avoid requiring restarting Maya
+
+    $filenameStem = "frame";
+
+    // faking a class for references & obj sequence data
+    $references = 				{ "frame1706RN" };
+    $referenceStartFrames =		{ 1706 };
+    $referenceCurrentFrames = 	{ 1706 };
+    $referenceNextFrames =		{ 1706 };
+    $referencePaths = 			{ "/Volumes/CATR-MISC/catr-capture/jenna/take-9/" };
+
+    // faking a class for timeline control / 'modes' / effects
+    $effects =					{ "still",	"normal" }; 
+    //	, "canon" };
+    $effectSettings =			{ 0,		0.5/*X speed */	}; 
+    //, 72 //delay }
+    $effectRanges =				{ 0, 5,		5, 40 };
+    //,		, 401, 1500 };
 }
 
-global proc updateMeshes(){
+global proc checkForSkipAhead(){
+	// update times
 	checkTime();
-	global int $ct;
+	global int $currentTime;
+	//int $currentTime = `currentTime -query`;
+	global int $lastTime;
 
-	//int $ct = `currentTime -query`;
-	int $currentFrame = $ct;
-	//int $startFrames[] = { playbackOptions -q -animationStartTime };
+	int $deltaT = $currentTime - $lastTime;
 
-	string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-9/";
-	string $filenameStem = "frame";
+	print("checkForSkipAhead(): current frame is " + $currentTime + "; deltaT is " + $deltaT + "\n");
+	
+	if($deltaT != 0){
+		if($deltaT == 1){
+			updateState($currentTime);
+			updateMeshes();
+		} else /* we've jumped more than one frame forwards or backwards*/ {
+			if($deltaT > 0){
+				for( $i = $lastTime+1; $i <= $deltaT; ++$i){
+					updateState($i);
+				}
+			} else {
+				for( $i = $lastTime-1; $i >= $deltaT; --$i){
+					updateState($i);
+				}
+			}
+			updateMeshes();
+		}
+	}
 
-	print("frameUpdate >> current frame is " + $currentFrame + "\n");
-	updateReferenceAtFrame(0, $currentFrame, $path, $filenameStem);
+	$lastTime = $currentTime;
 }
 
-global proc updateReferenceAtFrame(int $referenceIndex, int $currentFrame, string $path, string $filenameStem){
+global proc updateState(int $frame){
+	print("updateState($frame: " + $frame + "):" + "\n");
 	global string $references[];
 	global int $referenceStartFrames[];
 	global int $referenceCurrentFrames[];
+	global int $referenceNextFrames[];
+
+	global string $effects[];
+	global int $effectSettings[];
+	global int $effectRanges[];
+
+	for( $effect = 0; $effect < size($effects); ++$effect ){
+		print("$referenceCurrentFrames: ");
+		logArray($referenceCurrentFrames);
+		print("$referenceNextFrames: ");
+		logArray($referenceNextFrames);
+		if($frame >= $effectRanges[$effect*2] && $frame < $effectRanges[$effect*2+1]){
+			// the playhead is in range of the current effect
+			print("current effect: " + $effects[$effect] + "\n");
+
+
+			if($effects[$effect] == "stillness"){
+				for( $ref = 0; $ref < size($references); ++$ref ){
+					// iterate through references
+					int $tempNextFrame = $referenceNextFrames[$ref];
+
+					$referenceNextFrames[$ref] = $referenceCurrentFrames[$ref];
+					
+					$referenceCurrentFrames[$ref] = $tempNextFrame;
+				}
+			} else if($effects[$effect] == "normal"){
+				for( $ref = 0; $ref < size($references); ++$ref ){
+					// iterate through references
+					int $tempNextFrame = $referenceNextFrames[$ref];
+
+					/* round 'speed' value'*/
+					int $framesToAdvance = trunc($effectSettings[$effect]*pow(10,0)+0.5)/pow(10,0);
+					print("moving by " + $framesToAdvance + "\n");
+					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $framesToAdvance; 
+
+					$referenceCurrentFrames[$ref] = $tempNextFrame;
+				}
+			}
+		}
+	}
+}
+
+global proc updateMeshes(){
+	print("updateMeshes(): " + "\n");
+	global string $references[];
+
+	for($i = 0; $i < size($references); ++$i){
+		updateReference($i);
+	}
+}
+
+global proc updateReference(int $referenceIndex){
+	print("updateReference($referenceIndex: " + $referenceIndex + "): " + "\n");
+	global string $references[];
+	global int $referenceStartFrames[];
+	global int $referenceCurrentFrames[];
+	global string $referencePaths[];
+	
+	global string $filenameStem;
+	
 	string $frameIndex;
 
 	cycleCheck -e off;
 	
-	$frameIndex = $referenceStartFrames[$referenceIndex] + $currentFrame;
-	loadFileIntoReference($path, $filenameStem, $frameIndex, $references[$referenceIndex]);
-	$referenceCurrentFrames[$referenceIndex] = $frameIndex;
+	$frameIndex = $referenceCurrentFrames[$referenceIndex];
+	loadFileIntoReference($referencePaths[$referenceIndex], $filenameStem, $frameIndex, $references[$referenceIndex]);
 
-	print("set reference current frame to " + $referenceCurrentFrames[$referenceIndex]);
+	//print("set reference current frame to " + $referenceCurrentFrames[$referenceIndex]);
 }
 
 global proc loadFileIntoReference(string $path, string $filenameStem, string $index, string $reference){
+	print("loadFileIntoReference($index:" + $index + "):" + "\n");
 	string $filePath = $path + $filenameStem + $index + ".obj";
 	file -loadReference $reference -type "OBJ" $filePath;
 }
 
+global proc logArray(int $array[]){
+	print("{ ");
+	for( $i = 0; $i < size($array); ++$i){
+		print($array[$i]);
+		if($i != size($array) - 1){
+			print(", ");
+		}
+	}
+	print(" }" + "\n");
+}
 
+global proc checkTime(){
+    global int $currentTime;
+    $currentTime = `currentTime -query`;
+    //print("current time: " + $currentTime + "\n");
+}
 
 
 global proc updateFrameJennaSoloShot63(){
 	// updates OBJ files in sequence from disk
 	checkTime();
-	global int $ct;
-	//int $ct = `currentTime -query`;
+	global int $currentTime;
+	//int $currentTime = `currentTime -query`;
 	int $startFrames[] = { 1800 };
 	global int $currentFrames[];
 	//int $startFrames[] = { playbackOptions -q -animationStartTime };
@@ -82,12 +202,12 @@ global proc updateFrameJennaSoloShot63(){
 	int $burstLength = 120;
 	//int $burstOffset = 54;
 
-	print("frameUpdate >> current frame is " + $ct + "\n");
+	print("frameUpdate >> current frame is " + $currentTime + "\n");
 	cycleCheck -e off;
 
 	for( $i=1; $i<7; ++$i ){
 		$reference = "frame1706RN" + $i;
-		if($ct > 720){ //start rondo on f720
+		if($currentTime > 720){ //start rondo on f720
 			if($frameBurstCount == $burstLength){
 				if($currentReference < 6){
 					$currentReference++;
@@ -100,11 +220,11 @@ global proc updateFrameJennaSoloShot63(){
 			}
 
 			if($currentReference == $i){
-				//$frameNumber = $startFrames[$i-1] + $ct;
-				//$frameNumber = $startFrames[0] + $ct - 720; 
+				//$frameNumber = $startFrames[$i-1] + $currentTime;
+				//$frameNumber = $startFrames[0] + $currentTime - 720; 
 				$frameNumber = $currentFrames[$i-1];
 				$currentFrames[$i-1] = $currentFrames[$i-1] + 1;
-				//$frameNumber = $ct;	
+				//$frameNumber = $currentTime;	
 			} else {
 				$frameNumber = $currentFrames[$i-1];
 			}
@@ -120,13 +240,7 @@ global proc updateFrameJennaSoloShot63(){
 
 global proc initJenna063(){
 	print("running initJenna063");
-    global int $ct;
+    global int $currentTime;
 	global int $currentFrames[] = { 1800, 1800, 1800, 1800, 1800, 1800 };
 	global int $frameBurstCount = 0;
-}
-
-global proc checkTime(){
-    global int $ct;
-    $ct = `currentTime -query`;
-    print("current time: " + $ct + "\n");
 }
