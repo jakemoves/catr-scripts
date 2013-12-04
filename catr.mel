@@ -46,9 +46,9 @@ global proc init(){
     $referencePaths = 			{ "/Volumes/CATR-MISC/catr-capture/jenna/take-9/" };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "still",	"normal" }; //	, "canon" };
-    $effectSettings =			{ 0.0,		1 /*X speed */	}; //, 72 //delay } // NB: speed can be float below 1, int above 1;
-    $effectRanges =				{ 0, 24,	24, 480 }; //,		, 401, 1500 };
+    $effects =					{ "normal" 			}; //	, "canon" };
+    $effectSettings =			{ 0 /*X speed */	}; //, 72 //delay } // NB: speed can be float below 1, int above 1;
+    $effectRanges =				{ 0, 200 			}; //,		, 401, 1500 };
     $framesToAdvance =			  0.0;
 }
 
@@ -104,18 +104,7 @@ global proc updateState(int $frame){
 		if($frame >= $effectRanges[$effect*2] && $frame < $effectRanges[$effect*2+1]){
 			// the playhead is in range of the current effect
 			print("current effect: " + $effects[$effect] + "\n");
-
-
-			if($effects[$effect] == "stillness"){
-				for( $ref = 0; $ref < size($references); ++$ref ){
-					// iterate through references
-					int $tempNextFrame = $referenceNextFrames[$ref];
-
-					$referenceNextFrames[$ref] = $referenceCurrentFrames[$ref];
-					
-					$referenceCurrentFrames[$ref] = $tempNextFrame;
-				}
-			} else if($effects[$effect] == "normal"){
+			if($effects[$effect] == "normal"){
 				for( $ref = 0; $ref < size($references); ++$ref ){
 					// iterate through references
 					int $tempNextFrame = $referenceNextFrames[$ref];
