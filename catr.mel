@@ -30,8 +30,9 @@ global proc init(){
     global int $referenceNextFrames[];
     global string $referencePaths[];
     global string $effects[]; 
-    global int $effectSettings[]; 
+    global float $effectSettings[]; 
     global int $effectRanges[];
+    global float $framesToAdvance;
 
     // reset global variables to avoid requiring restarting Maya
 
@@ -45,12 +46,10 @@ global proc init(){
     $referencePaths = 			{ "/Volumes/CATR-MISC/catr-capture/jenna/take-9/" };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "still",	"normal" }; 
-    //	, "canon" };
-    $effectSettings =			{ 0,		0.5/*X speed */	}; 
-    //, 72 //delay }
-    $effectRanges =				{ 0, 5,		5, 40 };
-    //,		, 401, 1500 };
+    $effects =					{ "still",	"normal" }; //	, "canon" };
+    $effectSettings =			{ 0.0,		1 /*X speed */	}; //, 72 //delay } // NB: speed can be float below 1, int above 1;
+    $effectRanges =				{ 0, 24,	24, 480 }; //,		, 401, 1500 };
+    $framesToAdvance =			  0.0;
 }
 
 global proc checkForSkipAhead(){
@@ -93,8 +92,9 @@ global proc updateState(int $frame){
 	global int $referenceNextFrames[];
 
 	global string $effects[];
-	global int $effectSettings[];
+	global float $effectSettings[];
 	global int $effectRanges[];
+	global float $framesToAdvance;
 
 	for( $effect = 0; $effect < size($effects); ++$effect ){
 		print("$referenceCurrentFrames: ");
@@ -120,11 +120,15 @@ global proc updateState(int $frame){
 					// iterate through references
 					int $tempNextFrame = $referenceNextFrames[$ref];
 
-					/* round 'speed' value'*/
-					int $framesToAdvance = trunc($effectSettings[$effect]*pow(10,0)+0.5)/pow(10,0);
-					print("moving by " + $framesToAdvance + "\n");
-					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $framesToAdvance; 
+					$framesToAdvance = $framesToAdvance + $effectSettings[$effect];
+					int $truncFramesToAdvance = trunc($framesToAdvance*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
+					print("$framesToAdvance: " + $framesToAdvance + ", trunc: " + $truncFramesToAdvance + "\n");
+					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $truncFramesToAdvance; 
 
+					// clean up & set for next frame
+					if($truncFramesToAdvance >= 1){
+						$framesToAdvance = 0;
+					}
 					$referenceCurrentFrames[$ref] = $tempNextFrame;
 				}
 			}
