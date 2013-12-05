@@ -39,17 +39,45 @@ global proc init(){
     $filenameStem = "frame";
 
     // faking a class for references & obj sequence data
-    $references = 				{ "frame1706RN" };
-    $referenceStartFrames =		{ 1706 };
-    $referenceCurrentFrames = 	{ 1706 };
-    $referenceNextFrames =		{ 1706 };
-    $referencePaths = 			{ "/Volumes/CATR-MISC/catr-capture/jenna/take-9/" };
+    $references = 				{ "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN3", "frame1706RN4", "frame1706RN5" };
+    $referenceStartFrames =		{ 1726, 1746, 1766, 1786, 1806, 1826 };
+    $referenceCurrentFrames = 	{ 1726, 1746, 1766, 1786, 1806, 1826 };
+    $referenceNextFrames =		{ 1726, 1746, 1766, 1786, 1806, 1826 };
+    $referencePaths = 			{ 	
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"
+    							};
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "normal" 			}; //	, "canon" };
-    $effectSettings =			{ 0 /*X speed */	}; //, 72 //delay } // NB: speed can be float below 1, int above 1;
-    $effectRanges =				{ 0, 200 			}; //,		, 401, 1500 };
+    $effects =					{ "play" 	}; //	, "canon" };
+    $effectSettings =			{ 1.0/*X*/	}; //, 72 //delay } // NB: speed can be float below 1, must be int above 1;
+    $effectRanges =				{ 0, 960	}; //,		, 401, 1500 };
     $framesToAdvance =			  0.0;
+}
+
+global proc resetToStart(){
+	checkTime();
+
+	global int $currentTime;
+	global int $lastTime;
+	global string $references[];
+	global int $referenceStartFrames[];
+	global int $referenceCurrentFrames[];
+	global int $referenceNextFrames[];
+
+	$lastTime = $currentTime;
+
+	for( $i = 0; $i < size($references); $i++){
+		$referenceCurrentFrames[$i] = $referenceStartFrames[$i];
+		$referenceNextFrames[$i] = $referenceStartFrames[$i];
+	}
+
+	updateMeshes();
+	print(" control returned to resetToStart() >> ");
 }
 
 global proc checkForSkipAhead(){
@@ -68,7 +96,8 @@ global proc checkForSkipAhead(){
 			updateState($currentTime);
 			updateMeshes();
 		} else /* we've jumped more than one frame forwards or backwards*/ {
-			if($deltaT > 0){
+			// this doesn't work anyways so let's cut it
+			/*if($deltaT > 0){
 				for( $i = $lastTime+1; $i <= $deltaT; ++$i){
 					updateState($i);
 				}
@@ -77,7 +106,7 @@ global proc checkForSkipAhead(){
 					updateState($i);
 				}
 			}
-			updateMeshes();
+			updateMeshes();*/
 		}
 	}
 
@@ -104,21 +133,23 @@ global proc updateState(int $frame){
 		if($frame >= $effectRanges[$effect*2] && $frame < $effectRanges[$effect*2+1]){
 			// the playhead is in range of the current effect
 			print("current effect: " + $effects[$effect] + "\n");
-			if($effects[$effect] == "normal"){
+			if($effects[$effect] == "play"){
+				$framesToAdvance = $framesToAdvance + $effectSettings[$effect];
+				int $truncFramesToAdvance = trunc($framesToAdvance*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
+				print("$framesToAdvance: " + $framesToAdvance + ", trunc: " + $truncFramesToAdvance + "\n");
+				
 				for( $ref = 0; $ref < size($references); ++$ref ){
 					// iterate through references
 					int $tempNextFrame = $referenceNextFrames[$ref];
 
-					$framesToAdvance = $framesToAdvance + $effectSettings[$effect];
-					int $truncFramesToAdvance = trunc($framesToAdvance*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
-					print("$framesToAdvance: " + $framesToAdvance + ", trunc: " + $truncFramesToAdvance + "\n");
 					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $truncFramesToAdvance; 
 
-					// clean up & set for next frame
-					if($truncFramesToAdvance >= 1){
-						$framesToAdvance = 0;
-					}
 					$referenceCurrentFrames[$ref] = $tempNextFrame;
+				}
+
+				// clean up & set for next frame
+				if($truncFramesToAdvance >= 1){
+					$framesToAdvance = 0;
 				}
 			}
 		}
@@ -132,6 +163,7 @@ global proc updateMeshes(){
 	for($i = 0; $i < size($references); ++$i){
 		updateReference($i);
 	}
+	print(" control returned to updateMeshes() >> ");
 }
 
 global proc updateReference(int $referenceIndex){
@@ -143,7 +175,7 @@ global proc updateReference(int $referenceIndex){
 	
 	global string $filenameStem;
 	
-	string $frameIndex;
+	int $frameIndex;
 
 	cycleCheck -e off;
 	
@@ -151,12 +183,23 @@ global proc updateReference(int $referenceIndex){
 	loadFileIntoReference($referencePaths[$referenceIndex], $filenameStem, $frameIndex, $references[$referenceIndex]);
 
 	//print("set reference current frame to " + $referenceCurrentFrames[$referenceIndex]);
+	print(" control returned to updateReference >> ");
 }
 
-global proc loadFileIntoReference(string $path, string $filenameStem, string $index, string $reference){
-	print("loadFileIntoReference($index:" + $index + "):" + "\n");
+global proc loadFileIntoReference(string $path, string $filenameStem, int $index, string $reference){
 	string $filePath = $path + $filenameStem + $index + ".obj";
+	print("loadFileIntoReference($filePath: " + $filePath + ")" + "\n");
 	file -loadReference $reference -type "OBJ" $filePath;
+
+	// hide reference's meshShape
+	string $referenceNodes[] = `referenceQuery -nodes $reference`;
+	//print($referenceNodes);
+	string $meshShape = $referenceNodes[1]; // probably super fragile
+	string $attr = $meshShape + ".visibility";
+	int $visible = getAttr($attr);
+	if( $visible == 1){
+		setAttr($attr, 0); 
+	}
 }
 
 global proc logArray(int $array[]){
@@ -229,11 +272,4 @@ global proc updateFrameJennaSoloShot63(){
 		print("loading frame " + $frameNumber + " into reference " + $reference + "\n");
 		file -loadReference $reference -type "OBJ" $frame;
 	}
-}
-
-global proc initJenna063(){
-	print("running initJenna063");
-    global int $currentTime;
-	global int $currentFrames[] = { 1800, 1800, 1800, 1800, 1800, 1800 };
-	global int $frameBurstCount = 0;
 }
