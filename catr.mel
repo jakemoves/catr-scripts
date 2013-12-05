@@ -32,7 +32,7 @@ global proc init(){
     global string $effects[]; 
     global float $effectSettings[]; 
     global int $effectRanges[];
-    global float $framesToAdvance;
+    global float $framesToAdvance[];
 
     // reset global variables to avoid requiring restarting Maya
 
@@ -40,9 +40,9 @@ global proc init(){
 
     // faking a class for references & obj sequence data
     $references = 				{ "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN3", "frame1706RN4", "frame1706RN5" };
-    $referenceStartFrames =		{ 1726, 1746, 1766, 1786, 1806, 1826 };
-    $referenceCurrentFrames = 	{ 1726, 1746, 1766, 1786, 1806, 1826 };
-    $referenceNextFrames =		{ 1726, 1746, 1766, 1786, 1806, 1826 };
+    $referenceStartFrames =		{ 1826, 1826, 1826, 1826, 1826, 1826 };
+    $referenceCurrentFrames = 	{ 1826, 1826, 1826, 1826, 1826, 1826 };
+    $referenceNextFrames =		{ 1826, 1826, 1826, 1826, 1826, 1826 };
     $referencePaths = 			{ 	
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
@@ -51,12 +51,12 @@ global proc init(){
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"
     							};
+    $framesToAdvance =		{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "play" 	}; //	, "canon" };
-    $effectSettings =			{ 1.0/*X*/	}; //, 72 //delay } // NB: speed can be float below 1, must be int above 1;
-    $effectRanges =				{ 0, 960	}; //,		, 401, 1500 };
-    $framesToAdvance =			  0.0;
+    $effects =					{ "play" 					};
+    $effectSettings =			{ 1.0/*X*/, 30.0/*frames*/  }; // NB: speed can be float below 1, must be int above 1;
+    $effectRanges =				{ 0, 960					}; 
 }
 
 global proc resetToStart(){
@@ -77,7 +77,7 @@ global proc resetToStart(){
 	}
 
 	updateMeshes();
-	print(" control returned to resetToStart() >> ");
+	print(" control returned to resetToStart() >> " + "\n");
 }
 
 global proc checkForSkipAhead(){
@@ -123,33 +123,40 @@ global proc updateState(int $frame){
 	global string $effects[];
 	global float $effectSettings[];
 	global int $effectRanges[];
-	global float $framesToAdvance;
+	global float $framesToAdvance[];
 
 	for( $effect = 0; $effect < size($effects); ++$effect ){
 		print("$referenceCurrentFrames: ");
 		logArray($referenceCurrentFrames);
 		print("$referenceNextFrames: ");
 		logArray($referenceNextFrames);
-		if($frame >= $effectRanges[$effect*2] && $frame < $effectRanges[$effect*2+1]){
-			// the playhead is in range of the current effect
-			print("current effect: " + $effects[$effect] + "\n");
-			if($effects[$effect] == "play"){
-				$framesToAdvance = $framesToAdvance + $effectSettings[$effect];
-				int $truncFramesToAdvance = trunc($framesToAdvance*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
-				print("$framesToAdvance: " + $framesToAdvance + ", trunc: " + $truncFramesToAdvance + "\n");
-				
-				for( $ref = 0; $ref < size($references); ++$ref ){
-					// iterate through references
+		
+		for( $ref = 0; $ref < size($references); ++$ref ){
+			// iterate through references
+			float $refDelay = $ref*$effectSettings[$effect*2+1];
+			print("$refDelay: " + $refDelay + "\n");
+
+			if($frame 	>= 	(($effectRanges[$effect*2]) + $refDelay)
+			&& $frame 	< 	(($effectRanges[$effect*2+1])+$refDelay)){
+				// the playhead is in range of the current effect for this reference
+				if($effects[$effect] == "play"){
+					print("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n");
+					
+					$framesToAdvance[$ref] = $framesToAdvance[$ref] + $effectSettings[$effect*2];
+					int $truncFramesToAdvance = trunc($framesToAdvance[$ref]*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
+					print("$framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n");
+					
 					int $tempNextFrame = $referenceNextFrames[$ref];
 
 					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $truncFramesToAdvance; 
 
 					$referenceCurrentFrames[$ref] = $tempNextFrame;
-				}
+				
 
-				// clean up & set for next frame
-				if($truncFramesToAdvance >= 1){
-					$framesToAdvance = 0;
+					// clean up & set for next frame
+					if($truncFramesToAdvance >= 1){
+						$framesToAdvance[$ref] = 0;
+					}
 				}
 			}
 		}
@@ -163,7 +170,7 @@ global proc updateMeshes(){
 	for($i = 0; $i < size($references); ++$i){
 		updateReference($i);
 	}
-	print(" control returned to updateMeshes() >> ");
+	print(" control returned to updateMeshes() >> " + "\n");
 }
 
 global proc updateReference(int $referenceIndex){
