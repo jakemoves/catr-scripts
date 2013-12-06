@@ -39,24 +39,24 @@ global proc init(){
     $filenameStem = "frame";
 
     // faking a class for references & obj sequence data
-    $references = 				{ "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN3", "frame1706RN4", "frame1706RN5" };
-    $referenceStartFrames =		{ 1826, 1826, 1826, 1826, 1826, 1826 };
-    $referenceCurrentFrames = 	{ 1826, 1826, 1826, 1826, 1826, 1826 };
-    $referenceNextFrames =		{ 1826, 1826, 1826, 1826, 1826, 1826 };
+    $references = 				{ "frame1706RN" };//, "frame1706RN1", "frame1706RN2", "frame1706RN3", "frame1706RN4", "frame1706RN5" };
+    $referenceStartFrames =		{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
+    $referenceCurrentFrames = 	{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
+    $referenceNextFrames =		{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
     $referencePaths = 			{ 	
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"/*,
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
-    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
-    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"*/
     							};
-    $framesToAdvance =		{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+    $framesToAdvance =		{ 0.0 };//, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "play" 					};
-    $effectSettings =			{ 1.0/*X*/, 30.0/*frames*/  }; // NB: speed can be float below 1, must be int above 1;
-    $effectRanges =				{ 0, 960					}; 
+    $effects =					{ "play" 					,	"ramp"				,	"play"		,	"ramp"		, 	"play"		};
+    $effectSettings =			{ 0.5/*X*/, 0.0/*frames*/   ,	0.5/*X*/, 1.0/*X*/	,	1.0, 0.0	,	1.0, 0.0	, 	0.0, 0.0	}; // NB: speed can be float below 1, must be int above 1;
+    $effectRanges =				{ 0, 72 					,	72, 144  			,	144, 200  	,	200, 272	,	272, 300	}; 
 }
 
 global proc resetToStart(){
@@ -125,19 +125,22 @@ global proc updateState(int $frame){
 	global int $effectRanges[];
 	global float $framesToAdvance[];
 
-	for( $effect = 0; $effect < size($effects); ++$effect ){
+	
+		
+	for( $ref = 0; $ref < size($references); ++$ref ){
+		// iterate through references
 		print("$referenceCurrentFrames: ");
 		logArray($referenceCurrentFrames);
 		print("$referenceNextFrames: ");
 		logArray($referenceNextFrames);
 		
-		for( $ref = 0; $ref < size($references); ++$ref ){
-			// iterate through references
-			float $refDelay = $ref*$effectSettings[$effect*2+1];
-			print("$refDelay: " + $refDelay + "\n");
+		for( $effect = 0; $effect < size($effects); ++$effect ){
 
-			if($frame 	>= 	(($effectRanges[$effect*2]) + $refDelay)
-			&& $frame 	< 	(($effectRanges[$effect*2+1])+$refDelay)){
+			float $refDelay = $ref*$effectSettings[$effect*2+1];
+			//print("$refDelay: " + $refDelay + "\n");
+			float $adjustedRange[] = { ($effectRanges[$effect*2] + $refDelay), ($effectRanges[$effect*2+1] + $refDelay) }; //adjusted for canon value
+
+			if($frame >= $adjustedRange[0] && $frame < $adjustedRange[1]) {
 				// the playhead is in range of the current effect for this reference
 				if($effects[$effect] == "play"){
 					print("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n");
@@ -154,9 +157,38 @@ global proc updateState(int $frame){
 				
 
 					// clean up & set for next frame
-					if($truncFramesToAdvance >= 1){
-						$framesToAdvance[$ref] = 0;
+					if($framesToAdvance[$ref] >= 1){
+						$framesToAdvance[$ref] = $framesToAdvance[$ref] - 1;
 					}
+				} else if($effects[$effect] == "ramp"){
+					print("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n");
+
+					float $lerpStart = $effectSettings[$effect*2];
+					float $lerpEnd = $effectSettings[$effect*2+1];
+
+					float $lerpFrameDelta = $adjustedRange[1] - $adjustedRange[0];
+
+					float $lerpAmount = ($frame - $adjustedRange[0]) / $lerpFrameDelta;
+
+					float $lerp = lerp($lerpStart, $lerpEnd, $lerpAmount);
+					
+					$framesToAdvance[$ref] = $framesToAdvance[$ref] + $lerp;
+					int $truncFramesToAdvance = trunc($framesToAdvance[$ref]*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
+					print("$lerpFrameDelta: " + $lerpFrameDelta + ", $lerpAmount: " + $lerp + ", $lerp: " + $lerp + ", $framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n");
+					
+					int $tempNextFrame = $referenceNextFrames[$ref];
+
+					$referenceNextFrames[$ref] = $referenceNextFrames[$ref] + $truncFramesToAdvance; 
+
+					$referenceCurrentFrames[$ref] = $tempNextFrame;
+				
+
+					// clean up & set for next frame
+					if($framesToAdvance[$ref] >= 1){
+						$framesToAdvance[$ref] = $framesToAdvance[$ref] - 1; // should this add the remainder?
+					}
+				} else {
+					print("WARNING: frame " + $frame + " does not fall within any effect ranges" );
 				}
 			}
 		}
@@ -218,6 +250,12 @@ global proc logArray(int $array[]){
 		}
 	}
 	print(" }" + "\n");
+}
+
+global proc float lerp(float $start, float $end, float $value){
+	float $lerp;
+	$lerp = (1.0 - $value) * $start + $value * $end;
+	return $lerp;
 }
 
 global proc checkTime(){
