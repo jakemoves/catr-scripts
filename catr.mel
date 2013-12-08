@@ -1,4 +1,4 @@
-// bug: retrograde skips don't work properly
+// bug: retrograde skips don't work properly, so I abandoned that feature - instead use resetToStart()
 
 global proc createVrmesh(string $path, string $filename, string $object){
 	updateFrame();
@@ -39,24 +39,26 @@ global proc init(){
     $filenameStem = "frame";
 
     // faking a class for references & obj sequence data
-    $references = 				{ "frame1706RN" };//, "frame1706RN1", "frame1706RN2", "frame1706RN3", "frame1706RN4", "frame1706RN5" };
-    $referenceStartFrames =		{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
-    $referenceCurrentFrames = 	{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
-    $referenceNextFrames =		{ 1826 };//, 1826, 1826, 1826, 1826, 1826 };
+    $references = 				{ "frame1706RN3", "frame1706RN4", "frame1706RN5", "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN6", "frame1706RN7" };
+    $referenceStartFrames =		{ 1826,  1826, 1826, 1826, 1826, 1826, 1826, 1826 };
+    $referenceCurrentFrames = 	{ 1826,  1826, 1826, 1826, 1826, 1826, 1826, 1826 };
+    $referenceNextFrames =		{ 1826, 1826, 1826, 1826, 1826, 1826, 1826, 1826 };
     $referencePaths = 			{ 	
-    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"/*,
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
-    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"*/
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
+    								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/"
     							};
     $framesToAdvance =		{ 0.0 };//, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "play" 					,	"ramp"				,	"play"		,	"ramp"		, 	"play"		};
-    $effectSettings =			{ 0.5/*X*/, 0.0/*frames*/   ,	0.5/*X*/, 1.0/*X*/	,	1.0, 0.0	,	1.0, 0.0	, 	0.0, 0.0	}; // NB: speed can be float below 1, must be int above 1;
-    $effectRanges =				{ 0, 72 					,	72, 144  			,	144, 200  	,	200, 272	,	272, 300	}; 
+    $effects =					{ "play" 					};//,	"ramp"				,	"play"		,	"ramp"		, 	"play"		};
+    $effectSettings =			{ 1.0/*X*/, 48.0/*frames*/   };//,	0.5/*X*/, 1.0/*X*/	,	1.0, 0.0	,	1.0, 0.0	, 	0.0, 0.0	}; // NB: speed can be float below 1, must be int above 1;
+    $effectRanges =				{ 0, 480 					};//,	72, 144  			,	144, 200  	,	200, 272	,	272, 300	}; 
 }
 
 global proc resetToStart(){
