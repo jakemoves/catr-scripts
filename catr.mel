@@ -40,9 +40,9 @@ global proc init(){
 
     // faking a class for references & obj sequence data
     $references = 				{ "frame1706RN3", "frame1706RN4", "frame1706RN5", "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN6", "frame1706RN7" };
-    $referenceStartFrames =		{ 2475, 2475, 2475, 2475, 2475, 2475, 2475, 2475 };
-    $referenceCurrentFrames = 	{ 2475, 2475, 2475, 2475, 2475, 2475, 2475, 2475 };
-    $referenceNextFrames =		{ 2475, 2475, 2475, 2475, 2475, 2475, 2475, 2475 };
+    $referenceStartFrames =		{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
+    $referenceCurrentFrames = 	{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
+    $referenceNextFrames =		{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
     $referencePaths = 			{ 	
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
@@ -56,9 +56,14 @@ global proc init(){
     $framesToAdvance =		{ 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
     // faking a class for timeline control / 'modes' / effects
-    $effects =					{ "play"	,	"ramp"	  	};
-    $effectSettings =			{ 0.0, 48.0 , 	0.0, 0.5 	}; // NB: speed can be float below 1, must be int above 1;
-    $effectRanges =				{ 680, 682 	,	682, 1094  	};
+    // play: effectSettings[0] is playback speed, effectSettings[1] is offset / delay / canon
+    // ramp: effectSettings[0] is start speed, effectSettings[1] is end speed
+    //		speed can be float below 1 but must be int above 1
+    //		frame range is inclusive on floor, exclusive on ceiling (so we visualize it like a playhead between frames)
+   	//		there needs to be a play call (even if it's a dummy) before any ramp calls to set the canon.
+    $effects =					{ "play"	,	"ramp"		,	"ramp"		};
+    $effectSettings =			{ 0.0, 0.0	,	0.05, 0.7  , 	0.7, 0.0  	};
+    $effectRanges =				{ 679, 680	,	680, 1595	, 	1595, 2510	};
 }
 
 global proc resetToStart(){
