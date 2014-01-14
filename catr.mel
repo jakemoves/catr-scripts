@@ -40,9 +40,9 @@ global proc init(){
 
     // faking a class for references & obj sequence data
     $references = 				{ "frame1706RN3", "frame1706RN4", "frame1706RN5", "frame1706RN", "frame1706RN1", "frame1706RN2", "frame1706RN6", "frame1706RN7" };
-    $referenceStartFrames =		{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
-    $referenceCurrentFrames = 	{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
-    $referenceNextFrames =		{ 1980, 1980, 1980, 1980, 1980, 1980, 1980, 1980 };
+    $referenceStartFrames =		{ 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800 };
+    $referenceCurrentFrames = 	{ 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800 };
+    $referenceNextFrames =		{ 1800, 1800, 1800, 1800, 1800, 1800, 1800, 1800 };
     $referencePaths = 			{ 	
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
     								"/Volumes/CATR-MISC/catr-capture/jenna/take-9/",
