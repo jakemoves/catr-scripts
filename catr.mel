@@ -20,7 +20,7 @@ global proc createVrmeshes(int $start, int $end, string $object){
 }
 
 global proc init(){
-	log("init():" + "\n");
+	log("init(): \n");
 	global string $loggingOn;
     global int $currentTime;
     global int $lastTime;
@@ -63,7 +63,7 @@ global proc init(){
     //		frame range is inclusive on floor, exclusive on ceiling (so we visualize it like a playhead between frames)
    	//		there needs to be a play call (even if it's a dummy) before any ramp calls to set the canon.
     $effects =					{ "play"	,	"ramp"		,	"ramp"		};
-    $effectSettings =			{ 0.0, 0.0	,	0.05, 0.7  , 	0.7, 0.0  	};
+    $effectSettings =			{ 0.0, 24	,	0.05, 0.7  , 	0.7, 0.0  	};
     $effectRanges =				{ 679, 680	,	680, 1595	, 	1595, 2510	};
 }
 
@@ -96,6 +96,9 @@ global proc checkForSkipAhead(){
 	global int $currentTime;
 	//int $currentTime = `currentTime -query`;
 	global int $lastTime;
+	global string $loggingOn;
+
+	string $restoreLoggingSetting = "0";
 
 	int $deltaT = $currentTime - $lastTime;
 
@@ -106,17 +109,24 @@ global proc checkForSkipAhead(){
 			updateState($currentTime);
 			updateMeshes();
 		} else /* we've jumped more than one frame forwards or backwards*/ {
-			// this doesn't work anyways so let's cut it
-			/*if($deltaT > 0){
-				for( $i = $lastTime+1; $i <= $deltaT; ++$i){
+			if($deltaT > 0){
+				// disable logging for speed
+				if($loggingOn == "yes"){
+					$restoreLoggingSetting = $loggingOn;
+					$loggingOn = "no";
+				}
+				log("lastTime: " + $lastTime);
+				for( $i = $lastTime+1; $i <= $currentTime; ++$i){
 					updateState($i);
 				}
-			} else {
-				for( $i = $lastTime-1; $i >= $deltaT; --$i){
-					updateState($i);
-				}
+			} else if($deltaT < 0){
+				log("WARNING: negative scrubbing is not supported, please call resetToStart manually and scrub forward" + "\n");
 			}
-			updateMeshes();*/
+			// restore logging to original state
+			if($restoreLoggingSetting != "0"){
+				$loggingOn = $restoreLoggingSetting;
+			}
+			updateMeshes(); 
 		}
 	}
 
@@ -274,32 +284,40 @@ global proc loadFileIntoReference(string $path, string $filenameStem, int $index
 
 global proc log(string $text){
 	global string $loggingOn;
-	
+
 	if($loggingOn == "yes"){
 		print($text);
 	}
 }
 
 global proc logArrayInt(int $array[]){
-	log("{ ");
-	for( $i = 0; $i < size($array); ++$i){
-		log($array[$i]);
-		if($i != size($array) - 1){
-			log(", ");
+	global string $loggingOn;
+
+	if($loggingOn == "yes"){
+		print("{ ");
+		for( $i = 0; $i < size($array); ++$i){
+			print($array[$i]);
+			if($i != size($array) - 1){
+				print(", ");
+			}
 		}
+		print(" }" + "\n");
 	}
-	log(" }" + "\n");
 }
 
 global proc logArrayFloat(float $array[]){
-	log("{ ");
-	for( $i = 0; $i < size($array); ++$i){
-		log($array[$i]);
-		if($i != size($array) - 1){
-			log(", ");
+	global string $loggingOn;
+
+	if($loggingOn == "yes"){
+		print("{ ");
+		for( $i = 0; $i < size($array); ++$i){
+			print($array[$i]);
+			if($i != size($array) - 1){
+				print(", ");
+			}
 		}
+		print(" }" + "\n");
 	}
-	log(" }" + "\n");
 }
 
 global proc float lerp(float $start, float $end, float $value){
