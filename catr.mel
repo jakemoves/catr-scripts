@@ -35,6 +35,7 @@ global proc init(){
     global float $effectSettings[]; 
     global int $effectRanges[];
     global float $framesToAdvance[];
+    global int $lastFileInObjSequence;
 
     // reset global variables to avoid requiring restarting Maya
 
@@ -63,9 +64,11 @@ global proc init(){
     //		speed can be float below 1 but must be int above 1
     //		frame range is inclusive on floor, exclusive on ceiling (so we visualize it like a playhead between frames)
    	//		there needs to be a play call (even if it's a dummy) before any ramp calls to set the canon.
-    $effects =					{ "play"	,	"ramp"		,	"ramp"		};
-    $effectSettings =			{ 0.0, 24	,	0.05, 0.7  , 	0.7, 0.0  	};
-    $effectRanges =				{ 679, 680	,	680, 1595	, 	1595, 2510	};
+    $effects =				{ "play"	,	"ramp"		,	"ramp"		};
+    $effectSettings =		{ 0.0, 24	,	0.05, 0.7  , 	0.7, 0.0  	};
+    $effectRanges =			{ 679, 680	,	680, 1595	, 	1595, 2510	};
+
+    $lastFileInObjSequence = 2496;
 }
 
 global proc resetToStart(){
@@ -287,20 +290,26 @@ global proc updateReference(int $referenceIndex){
 }
 
 global proc loadFileIntoReference(string $path, string $filenameStem, int $index, string $reference){
-	string $filePath = $path + $filenameStem + $index + ".obj";
-	log("loadFileIntoReference($filePath: " + $filePath + ") \n", 2);
-	if( catch( file -loadReference $reference -type "OBJ" $filePath ){
-		log("WARNING: end of OBJ sequence reached at index " + $index + "\n", 1);
+	global int $lastFileInObjSequence;
+
+	if($index <= $lastFileInObjSequence){
+		string $filePath = $path + $filenameStem + $index + ".obj";
+		log("loadFileIntoReference($filePath: " + $filePath + ") \n", 2);
+		if( catch( `file -loadReference $reference -pmt false -type "OBJ" $filePath`)){
+			log("WARNING: suppressed error on file loadReference", 1);
+		} else {
+			// hide reference's meshShape
+			string $referenceNodes[] = `referenceQuery -nodes $reference`;
+			//log($referenceNodes);
+			string $meshShape = $referenceNodes[1]; // probably super fragile
+			string $attr = $meshShape + ".visibility";
+			int $visible = getAttr($attr);
+			if( $visible == 1){
+				setAttr($attr, 0); 
+			}
+		} 
 	} else {
-		// hide reference's meshShape
-		string $referenceNodes[] = `referenceQuery -nodes $reference`;
-		//log($referenceNodes);
-		string $meshShape = $referenceNodes[1]; // probably super fragile
-		string $attr = $meshShape + ".visibility";
-		int $visible = getAttr($attr);
-		if( $visible == 1){
-			setAttr($attr, 0); 
-		}
+		log("WARNING: end of OBJ sequence reached at index " + $index + "\n", 1);
 	}
 }
 
