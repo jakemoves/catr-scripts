@@ -3,8 +3,8 @@
 global proc createVrmesh(string $path, string $filename, string $object){
 	updateFrame();
 	select -r $object;
-	log("creating vray mesh for current frame from " + $object + "\n");
-	log("file: " + $path + $filename);
+	log("creating vray mesh for current frame from " + $object + "\n", 1);
+	log("file: " + $path + $filename, 1);
 	vrayCreateProxy -exportType 1 -previewFaces 100000 -dir $path -fname $filename -ignoreHiddenObjects;
 }
 
@@ -20,10 +20,11 @@ global proc createVrmeshes(int $start, int $end, string $object){
 }
 
 global proc init(){
-	log("init(): \n");
-	global string $loggingOn;
+	log("init(): \n", 1);
+	global string $loggingLevel;
     global int $currentTime;
     global int $lastTime;
+    global float $playbackRange[];
     global string $filenameStem;
     global string $references[];
     global int $referenceStartFrames[];
@@ -70,16 +71,23 @@ global proc init(){
 global proc resetToStart(){
 	checkTime();
 
-	global string $loggingOn;
+	global string $loggingLevel;
 	global int $currentTime;
 	global int $lastTime;
 	global string $references[];
 	global int $referenceStartFrames[];
 	global int $referenceCurrentFrames[];
 	global int $referenceNextFrames[];
+    global float $playbackRange[];
 
-	$loggingOn = "yes";
+	$loggingLevel = "1";
+	// 0: no logging
+	// 1: start and end states
+	// 2: full logging (can add 30+ secs to each frame on render / playblast)
+
 	$lastTime = $currentTime;
+	$playbackRange[0] = `playbackOptions -q -minTime`; 
+	$playbackRange[1] = `playbackOptions -q -maxTime`;
 
 	for( $i = 0; $i < size($references); $i++){
 		$referenceCurrentFrames[$i] = $referenceStartFrames[$i];
@@ -87,7 +95,7 @@ global proc resetToStart(){
 	}
 
 	updateMeshes();
-	log(" control returned to resetToStart() >> " + "\n");
+	log(" control returned to resetToStart() >> " + "\n", 1);
 }
 
 global proc checkForSkipAhead(){
@@ -96,14 +104,26 @@ global proc checkForSkipAhead(){
 	global int $currentTime;
 	//int $currentTime = `currentTime -query`;
 	global int $lastTime;
-	global string $loggingOn;
+	global string $loggingLevel;
+	global float $playbackRange[];
 
-	string $restoreLoggingSetting = "0";
+	int $restoreLoggingSetting = 0;
 
 	int $deltaT = $currentTime - $lastTime;
 
-	log("checkForSkipAhead(): current frame is " + $currentTime + "; deltaT is " + $deltaT + "\n");
+	log("checkForSkipAhead(): current frame is " + $currentTime + "; deltaT is " + $deltaT + "\n", 2);
 	
+
+	if($currentTime == trunc($playbackRange[0]) + 1){
+		log("first frame of render \n", 1);
+		$loggingLevel = 2;
+	} else if($currentTime == trunc($playbackRange[1])){
+		log("last frame of render \n", 1);
+		$loggingLevel = 2;
+	} else {
+		$loggingLevel = 1;
+	}
+
 	if($deltaT != 0){
 		if($deltaT == 1){
 			updateState($currentTime);
@@ -111,20 +131,20 @@ global proc checkForSkipAhead(){
 		} else /* we've jumped more than one frame forwards or backwards*/ {
 			if($deltaT > 0){
 				// disable logging for speed
-				if($loggingOn == "yes"){
-					$restoreLoggingSetting = $loggingOn;
-					$loggingOn = "no";
+				if($loggingLevel != 0){
+					$restoreLoggingSetting = $loggingLevel;
+					$loggingLevel = 0;
 				}
-				log("lastTime: " + $lastTime);
+				log("lastTime: " + $lastTime, 2);
 				for( $i = $lastTime+1; $i <= $currentTime; ++$i){
 					updateState($i);
 				}
 			} else if($deltaT < 0){
-				log("WARNING: negative scrubbing is not supported, please call resetToStart manually and scrub forward" + "\n");
+				log("WARNING: negative scrubbing is not supported, please call resetToStart manually and scrub forward" + "\n", 1);
 			}
 			// restore logging to original state
 			if($restoreLoggingSetting != "0"){
-				$loggingOn = $restoreLoggingSetting;
+				$loggingLevel = $restoreLoggingSetting;
 			}
 			updateMeshes(); 
 		}
@@ -134,7 +154,7 @@ global proc checkForSkipAhead(){
 }
 
 global proc updateState(int $frame){
-	log("updateState($frame: " + $frame + "):" + "\n");
+	log("updateState($frame: " + $frame + "): \n", 2);
 	global string $references[];
 	global int $referenceStartFrames[];
 	global int $referenceCurrentFrames[];
@@ -149,10 +169,10 @@ global proc updateState(int $frame){
 		
 	for( $ref = 0; $ref < size($references); ++$ref ){
 		// iterate through references
-		log("$referenceCurrentFrames: ");
-		logArrayInt($referenceCurrentFrames);
-		log("$referenceNextFrames: ");
-		logArrayInt($referenceNextFrames);
+		log("$referenceCurrentFrames: ", 2);
+		logArrayInt($referenceCurrentFrames, 2);
+		log("$referenceNextFrames: ", 2);
+		logArrayInt($referenceNextFrames, 2);
 		float $refDelay = -1.0;
 		
 		for( $effect = 0; $effect < size($effects); ++$effect ){
@@ -167,19 +187,19 @@ global proc updateState(int $frame){
 				}
 			}
 
-			log("$refDelay: " + $refDelay + "; ");
+			log("$refDelay: " + $refDelay + "; ", 2);
 			float $adjustedRange[] = { ($effectRanges[$effect*2] + $refDelay), ($effectRanges[$effect*2+1] + $refDelay) }; //adjusted for canon value
-			log("$adjustedRange: ");
-			logArrayFloat($adjustedRange);
+			log("$adjustedRange: ", 2);
+			logArrayFloat($adjustedRange, 2);
 
 			if($frame >= $adjustedRange[0] && $frame < $adjustedRange[1]) {
 				// the playhead is in range of the current effect for this reference
 				if($effects[$effect] == "play"){
-					log("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n");
+					log("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n", 2);
 					
 					$framesToAdvance[$ref] = $framesToAdvance[$ref] + $effectSettings[$effect*2];
 					int $truncFramesToAdvance = trunc($framesToAdvance[$ref]*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
-					log("$framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n");
+					log("$framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n", 2);
 					
 					int $tempNextFrame = $referenceNextFrames[$ref];
 
@@ -193,15 +213,15 @@ global proc updateState(int $frame){
 						$framesToAdvance[$ref] = $framesToAdvance[$ref] - 1;
 					}
 				} else if($effects[$effect] == "ramp"){
-					log("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n");
+					log("applying effect \"" + $effects[$effect] + "\" to reference " + $ref + "\n", 2);
 
 					if($refDelay == -1.0){
-						log("ERROR: Need a canon set with a play effect before calling ramp" + "\n");
+						log("ERROR: Need a canon set with a play effect before calling ramp" + "\n", 2);
 					} else {
-						log("$refDelay: " + $refDelay + "; ");
+						log("$refDelay: " + $refDelay + "; ", 2);
 						float $adjustedRange[] = { ($effectRanges[$effect*2] + $refDelay), ($effectRanges[$effect*2+1] + $refDelay) }; //adjusted for canon value
-						log("$adjustedRange: ");
-						logArrayFloat($adjustedRange);
+						log("$adjustedRange: ", 2);
+						logArrayFloat($adjustedRange, 2);
 
 						float $lerpStart = $effectSettings[$effect*2];
 						float $lerpEnd = $effectSettings[$effect*2+1];
@@ -214,7 +234,7 @@ global proc updateState(int $frame){
 						
 						$framesToAdvance[$ref] = $framesToAdvance[$ref] + $lerp;
 						int $truncFramesToAdvance = trunc($framesToAdvance[$ref]*pow(10,0)/*+0.5*/)/pow(10,0); /* round 'speed' value' by uncommenting 0.5 back in*/
-						log("$lerpFrameDelta: " + $lerpFrameDelta + ", $lerpAmount: " + $lerp + ", $lerp: " + $lerp + ", $framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n");
+						log("$lerpFrameDelta: " + $lerpFrameDelta + ", $lerpAmount: " + $lerp + ", $lerp: " + $lerp + ", $framesToAdvance: " + $framesToAdvance[$ref] + ", trunc: " + $truncFramesToAdvance + "\n", 2);
 						
 						int $tempNextFrame = $referenceNextFrames[$ref];
 
@@ -229,7 +249,7 @@ global proc updateState(int $frame){
 						}
 					}
 				} else {
-					log("WARNING: frame " + $frame + " does not fall within any effect ranges" );
+					log("WARNING: frame " + $frame + " does not fall within any effect ranges \n", 2);
 				}
 			}
 		}
@@ -237,17 +257,17 @@ global proc updateState(int $frame){
 }
 
 global proc updateMeshes(){
-	log("updateMeshes(): " + "\n");
+	log("updateMeshes(): " + "\n", 2);
 	global string $references[];
 
 	for($i = 0; $i < size($references); ++$i){
 		updateReference($i);
 	}
-	log(" control returned to updateMeshes() >> " + "\n");
+	log(" control returned to updateMeshes() >> \n", 2);
 }
 
 global proc updateReference(int $referenceIndex){
-	log("updateReference($referenceIndex: " + $referenceIndex + "): " + "\n");
+	log("updateReference($referenceIndex: " + $referenceIndex + "): \n", 2);
 	global string $references[];
 	global int $referenceStartFrames[];
 	global int $referenceCurrentFrames[];
@@ -263,12 +283,12 @@ global proc updateReference(int $referenceIndex){
 	loadFileIntoReference($referencePaths[$referenceIndex], $filenameStem, $frameIndex, $references[$referenceIndex]);
 
 	//log("set reference current frame to " + $referenceCurrentFrames[$referenceIndex]);
-	log(" control returned to updateReference >> ");
+	log(" control returned to updateReference >> ", 2);
 }
 
 global proc loadFileIntoReference(string $path, string $filenameStem, int $index, string $reference){
 	string $filePath = $path + $filenameStem + $index + ".obj";
-	log("loadFileIntoReference($filePath: " + $filePath + ")" + "\n");
+	log("loadFileIntoReference($filePath: " + $filePath + ") \n", 2);
 	file -loadReference $reference -type "OBJ" $filePath;
 
 	// hide reference's meshShape
@@ -282,41 +302,83 @@ global proc loadFileIntoReference(string $path, string $filenameStem, int $index
 	}
 }
 
-global proc log(string $text){
-	global string $loggingOn;
+global proc log(string $text, int $level){
+	global string $loggingLevel;
 
-	if($loggingOn == "yes"){
-		print($text);
+	if($loggingLevel == "0"){
+		// no logging
+	} else if($loggingLevel == "1"){
+		// limited logging
+		if($level == 1){
+			print($text);
+		}
+	} else if($loggingLevel == "2"){
+		// full logging
+		if($level >= 1){
+			print($text);
+		}
 	}
 }
 
-global proc logArrayInt(int $array[]){
-	global string $loggingOn;
-
-	if($loggingOn == "yes"){
-		print("{ ");
-		for( $i = 0; $i < size($array); ++$i){
-			print($array[$i]);
-			if($i != size($array) - 1){
-				print(", ");
+global proc logArrayInt(int $array[], int $level){
+	global string $loggingLevel;
+	if($loggingLevel == "0"){
+		// no logging
+	} else if($loggingLevel == "1"){
+		// limited logging
+		if($level == 1){
+			print("{ ");
+			for( $i = 0; $i < size($array); ++$i){
+				print($array[$i]);
+				if($i != size($array) - 1){
+					print(", ");
+				}
 			}
+			print(" }" + "\n");
 		}
-		print(" }" + "\n");
+	} else if($loggingLevel == "2"){
+		// full logging
+		if($level >= 1){
+			print("{ ");
+			for( $i = 0; $i < size($array); ++$i){
+				print($array[$i]);
+				if($i != size($array) - 1){
+					print(", ");
+				}
+			}
+			print(" }" + "\n");
+		}
 	}
 }
 
-global proc logArrayFloat(float $array[]){
-	global string $loggingOn;
-
-	if($loggingOn == "yes"){
-		print("{ ");
-		for( $i = 0; $i < size($array); ++$i){
-			print($array[$i]);
-			if($i != size($array) - 1){
-				print(", ");
+global proc logArrayFloat(float $array[], int $level){
+	global string $loggingLevel;
+	if($loggingLevel == "0"){
+		// no logging
+	} else if($loggingLevel == "1"){
+		// limited logging
+		if($level == 1){
+			print("{ ");
+			for( $i = 0; $i < size($array); ++$i){
+				print($array[$i]);
+				if($i != size($array) - 1){
+					print(", ");
+				}
 			}
+			print(" }" + "\n");
 		}
-		print(" }" + "\n");
+	} else if($loggingLevel == "2"){
+		// full logging
+		if($level >= 1){
+			print("{ ");
+			for( $i = 0; $i < size($array); ++$i){
+				print($array[$i]);
+				if($i != size($array) - 1){
+					print(", ");
+				}
+			}
+			print(" }" + "\n");
+		}
 	}
 }
 
@@ -329,60 +391,5 @@ global proc float lerp(float $start, float $end, float $value){
 global proc checkTime(){
     global int $currentTime;
     $currentTime = `currentTime -query`;
-    //log("current time: " + $currentTime + "\n");
-}
-
-
-global proc updateFrameJennaSoloShot63(){
-	// updates OBJ files in sequence from disk
-	checkTime();
-	global int $currentTime;
-	//int $currentTime = `currentTime -query`;
-	int $startFrames[] = { 1800 };
-	global int $currentFrames[];
-	//int $startFrames[] = { playbackOptions -q -animationStartTime };
-	string $frameNumber;
-	string $frame;
-	string $index;
-	string $reference;
-	string $path = "/Volumes/CATR-MISC/catr-capture/jenna/take-9/frame";
-	int $currentReference = 1; 
-	int $frameBurstCount;
-	int $burstLength = 120;
-	//int $burstOffset = 54;
-
-	log("frameUpdate >> current frame is " + $currentTime + "\n");
-	cycleCheck -e off;
-
-	for( $i=1; $i<7; ++$i ){
-		$reference = "frame1706RN" + $i;
-		if($currentTime > 720){ //start rondo on f720
-			if($frameBurstCount == $burstLength){
-				if($currentReference < 6){
-					$currentReference++;
-				} else {
-					$currentReference = 1;
-				}
-				$frameBurstCount = 0;
-			} else {
-				$frameBurstCount++;
-			}
-
-			if($currentReference == $i){
-				//$frameNumber = $startFrames[$i-1] + $currentTime;
-				//$frameNumber = $startFrames[0] + $currentTime - 720; 
-				$frameNumber = $currentFrames[$i-1];
-				$currentFrames[$i-1] = $currentFrames[$i-1] + 1;
-				//$frameNumber = $currentTime;	
-			} else {
-				$frameNumber = $currentFrames[$i-1];
-			}
-		} else {
-			log("still on preburst");
-			$frameNumber = $currentFrames[$i-1];
-		}
-		$frame = ( $path + $frameNumber + ".obj" );
-		log("loading frame " + $frameNumber + " into reference " + $reference + "\n");
-		file -loadReference $reference -type "OBJ" $frame;
-	}
+    //log("current time: " + $currentTime + "\n", 2);
 }
