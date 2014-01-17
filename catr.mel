@@ -289,16 +289,18 @@ global proc updateReference(int $referenceIndex){
 global proc loadFileIntoReference(string $path, string $filenameStem, int $index, string $reference){
 	string $filePath = $path + $filenameStem + $index + ".obj";
 	log("loadFileIntoReference($filePath: " + $filePath + ") \n", 2);
-	file -loadReference $reference -type "OBJ" $filePath;
-
-	// hide reference's meshShape
-	string $referenceNodes[] = `referenceQuery -nodes $reference`;
-	//log($referenceNodes);
-	string $meshShape = $referenceNodes[1]; // probably super fragile
-	string $attr = $meshShape + ".visibility";
-	int $visible = getAttr($attr);
-	if( $visible == 1){
-		setAttr($attr, 0); 
+	if( catch( file -loadReference $reference -type "OBJ" $filePath ){
+		log("WARNING: end of OBJ sequence reached at index " + $index + "\n", 1);
+	} else {
+		// hide reference's meshShape
+		string $referenceNodes[] = `referenceQuery -nodes $reference`;
+		//log($referenceNodes);
+		string $meshShape = $referenceNodes[1]; // probably super fragile
+		string $attr = $meshShape + ".visibility";
+		int $visible = getAttr($attr);
+		if( $visible == 1){
+			setAttr($attr, 0); 
+		}
 	}
 }
 
