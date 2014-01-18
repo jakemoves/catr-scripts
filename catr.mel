@@ -25,6 +25,7 @@ global proc init(){
     global int $currentTime;
     global int $lastTime;
     global float $playbackRange[];
+    global int $renderRange[]; // added to speed up camera renders that have to run maths from the start
     global string $filenameStem;
     global string $references[];
     global int $referenceStartFrames[];
@@ -69,6 +70,8 @@ global proc init(){
     $effectRanges =			{ 679, 680	,	680, 1595	, 	1595, 2510	};
 
     $lastFileInObjSequence = 2496;
+    $renderRange[0] = 2405; // inclusive
+    $renderRange[1] = 2672; // inclusive
 }
 
 global proc resetToStart(){
@@ -109,6 +112,7 @@ global proc checkForSkipAhead(){
 	global int $lastTime;
 	global string $loggingLevel;
 	global float $playbackRange[];
+	global int $renderRange[];
 
 	int $restoreLoggingSetting = 0;
 
@@ -129,8 +133,23 @@ global proc checkForSkipAhead(){
 
 	if($deltaT != 0){
 		if($deltaT == 1){
-			updateState($currentTime);
-			updateMeshes();
+			if($currentTime >= $renderRange[0] && $currentTime <= $renderRange[1]){
+				updateState($currentTime);
+				updateMeshes();
+			} else {
+				// disable logging for speed
+				if($loggingLevel != 0){
+					$restoreLoggingSetting = $loggingLevel;
+					$loggingLevel = 0;
+				}
+
+				updateState($currentTime);
+				print("updating state for frame " + $currentTime + "\n");
+				// restore logging to original state
+				if($restoreLoggingSetting != "0"){
+					$loggingLevel = $restoreLoggingSetting;
+				}
+			}
 		} else /* we've jumped more than one frame forwards or backwards*/ {
 			if($deltaT > 0){
 				// disable logging for speed
